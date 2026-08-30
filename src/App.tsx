@@ -1,31 +1,46 @@
-import { BrowserRouter, Routes, Route } from 'react-router';
-import { Navbar, Footer } from './components/Layout';
-import Home from './pages/Home';
-import Features from './pages/Features';
-import Pricing from './pages/Pricing';
-import About from './pages/About';
-import CareerJourney from './pages/CareerJourney';
-import Contact from './pages/Contact';
-import FeatureDetail from './pages/FeatureDetail';
+import { useState, useEffect } from 'react'
+import Navbar from './components/Navbar'
+import Hero from './components/Hero'
+import Products from './components/Products'
+import Mission from './components/Mission'
+import Calculator from './components/Calculator'
+import Stats from './components/Stats'
+import ContactForm from './components/ContactForm'
+import Footer from './components/Footer'
 
-export default function App() {
+function App() {
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    if (saved) return saved === 'dark'
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [darkMode])
+
+  const toggleDarkMode = () => setDarkMode(!darkMode)
+
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-[#f8f9fa] text-gray-900 selection:bg-purple-500/30 flex flex-col">
-        <Navbar />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/features" element={<Features />} />
-            <Route path="/features/:slug" element={<FeatureDetail />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/career-journey" element={<CareerJourney />} />
-            <Route path="/contact" element={<Contact />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </BrowserRouter>
-  );
+    <div className="min-h-screen bg-warm-50 text-warm-700 dark:bg-warm-900 dark:text-warm-100 transition-colors duration-300">
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+      <main>
+        <Hero />
+        <Products />
+        <Mission />
+        <Calculator />
+        <Stats />
+        <ContactForm />
+      </main>
+      <Footer />
+    </div>
+  )
 }
+
+export default App
