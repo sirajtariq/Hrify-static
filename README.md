@@ -1,68 +1,32 @@
-# HRify-Ai — The Professional HR Operating System
+# React + TypeScript + Vite
 
-HRify-Ai is a next-generation, AI-native platform designed to unify payroll, compliance, and employee growth into a single, autonomous intelligence layer.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-## 🚀 Vision
-We believe HR should be invisible, automated, and employee-first. HRify-Ai bridges the gap between management and talent by automating administrative overhead and providing radical clarity into every professional journey.
+Currently, two official plugins are available:
 
----
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## 🎨 Design System
+## React Compiler
 
-### 💎 Typography
-The interface uses the **Inter** typeface for its clean, modern, and highly readable characteristics across all weights.
-- **Font Family**: `Inter`, `ui-sans-serif`, `system-ui`, `sans-serif`
-- **Weights**: 300 (Light), 400 (Regular), 500 (Medium), 600 (Semi-Bold), 700 (Bold), 800 (Extra-Bold)
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-### 🌈 Color Palette
-A professional and vibrant palette designed for clarity and a premium feel.
+## Expanding the Oxlint configuration
 
-| Element | Color Code | Hex |
-| :--- | :--- | :--- |
-| **Background** | Off-White | `#f8f9fa` |
-| **Foreground** | Onyx | `#111111` |
-| **Primary Accent** | Royal Purple | `#7c3aed` |
-| **Secondary Accent** | Ocean Blue | `#2563eb` |
-| **Muted Text** | Slate Gray | `#6b7280` |
-| **Border/Glass** | Subtle Divider | `rgba(0, 0, 0, 0.05)` |
+If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
 
-### ✨ UI Effects
-- **Glassmorphism**: Surfaces use a semi-transparent white (`rgba(255, 255, 255, 0.7)`) with a `12px` backdrop blur for a professional, layered look.
-- **Gradients**: Key elements use a linear gradient from **Royal Purple** (`#7c3aed`) to **Ocean Blue** (`#2563eb`).
-- **Glows**: Subtle box shadows with low-opacity accent colors are used to provide depth to interactive elements.
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}
+```
 
----
-
-## 🛠️ Tech Stack
-- **Frontend**: [React](https://reactjs.org/) + [Vite](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-- **Animations**: [Framer Motion](https://www.framer.com/motion/)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Intelligence**: [Google Gemini Pro AI](https://deepmind.google/technologies/gemini/)
-
----
-
-## 🏗️ Getting Started
-
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-
-### Installation
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set your `GEMINI_API_KEY` in `.env.local`:
-   ```env
-   GEMINI_API_KEY=your_api_key_here
-   ```
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
----
-
-© 2026 HRify-Ai. Built with Intelligence.
+See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
