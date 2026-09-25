@@ -87,296 +87,200 @@ export const InteractiveScrollFeatures: React.FC<InteractiveScrollFeaturesProps>
   const lastStepTimeRef = useRef<number>(0);
   const isTransitioningRef = useRef<boolean>(false);
   const [animating, setAnimating] = useState<boolean>(false);
-  const [isFrozen, setIsFrozen] = useState<boolean>(false);
-  const isFrozenRef = useRef<boolean>(false);
-  const hasEverUnlockedDownRef = useRef<boolean>(false);
-
-  // Timers to guarantee pause on Feature 01 on arrival, and pause on Feature 04 before exit
-  const entranceTimeRef = useRef<number>(0);
-  const reachedLastFeatureTimeRef = useRef<number>(0);
-  const reachedFirstFeatureTimeRef = useRef<number>(0);
+  const positionStateRef = useRef<'above' | 'below' | 'aligned'>('below');
 
   // Keep refs synchronized with state
   useEffect(() => {
     activeIndexRef.current = activeIndex;
   }, [activeIndex]);
 
-  useEffect(() => {
-    isFrozenRef.current = isFrozen;
-  }, [isFrozen]);
-
-  // Freeze / Unfreeze body and html scroll
-  const freezeScreen = () => {
-    if (isFrozenRef.current) return;
-    isFrozenRef.current = true;
-    setIsFrozen(true);
-    entranceTimeRef.current = Date.now();
-    lastStepTimeRef.current = Date.now() + 500;
-    document.documentElement.style.overflowY = 'hidden';
-    document.body.style.overflowY = 'hidden';
+  const handleSelectPhase = (index: number) => {
+    if (index === activeIndexRef.current || index < 0 || index >= FEATURE_PHASES.length) return;
+    isTransitioningRef.current = true;
+    setAnimating(true);
+    setActiveIndex(index);
+    setTimeout(() => {
+      setAnimating(false);
+      isTransitioningRef.current = false;
+    }, 500);
   };
 
-  const unfreezeScreen = () => {
-    if (!isFrozenRef.current) return;
-    isFrozenRef.current = false;
-    setIsFrozen(false);
-    document.documentElement.style.overflowY = '';
-    document.body.style.overflowY = '';
+  const handleNext = () => {
+    if (activeIndexRef.current < FEATURE_PHASES.length - 1) {
+      handleSelectPhase(activeIndexRef.current + 1);
+    }
   };
 
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      document.documentElement.style.overflowY = '';
-      document.body.style.overflowY = '';
-    };
-  }, []);
-
-  // 1. Exact Screen Positioning & Freeze:
-  // Aligns section directly below the 64px navbar so navbar remains 100% visible at the top,
-  // and the whole card is perfectly centered on screen without being cut off!
-  useEffect(() => {
-    const handleScroll = () => {
-      if (isFrozenRef.current) return;
-      if (!sectionRef.current) return;
-
-      const navbarHeight = 64;
-      const sectionTop = sectionRef.current.offsetTop;
-      const targetScroll = sectionTop - navbarHeight - 4; // Perfect alignment below navbar
-
-      // When scroll reaches near this target position
-      if (
-        window.scrollY >= targetScroll - 60 &&
-        window.scrollY <= targetScroll + 120 &&
-        !hasEverUnlockedDownRef.current &&
-        activeIndexRef.current < FEATURE_PHASES.length - 1
-      ) {
-        window.scrollTo({ top: targetScroll, behavior: 'instant' as ScrollBehavior });
-        freezeScreen();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const handlePrev = () => {
+    if (activeIndexRef.current > 0) {
+      handleSelectPhase(activeIndexRef.current - 1);
+    }
+  };
 
   // 2. Mouse Wheel Handler during Frozen State
+  // Container-specific scroll trapping (Only traps when hovering the container)
   useEffect(() => {
+    const container = sectionRef.current;
+    if (!container) return;
+
+    const getTargetTop = () => {
+      const rect = container.getBoundingClientRect();
+      const centerTop = (window.innerHeight - rect.height) / 2;
+      return Math.max(80, centerTop);
+    };
+
     const handleWheel = (e: WheelEvent) => {
-      if (!sectionRef.current) return;
+      const rect = container.getBoundingClientRect();
+      const targetTop = getTargetTop();
+      const tolerance = 80;
+      
+      let currentState: 'above' | 'below' | 'aligned';
+      if (rect.top > targetTop + tolerance) currentState = 'below';
+      else if (rect.top < targetTop - tolerance) currentState = 'above';
+      else currentState = 'aligned';
 
-      const navbarHeight = 64;
-      const sectionTop = sectionRef.current.offsetTop;
-      const targetScroll = sectionTop - navbarHeight - 4;
-      const rect = sectionRef.current.getBoundingClientRect();
+      const wasAligned = positionStateRef.current === 'aligned';
+      const previousState = positionStateRef.current;
+      positionStateRef.current = currentState;
 
-      // Check if cursor is over the section or section is in primary view
-      const isOverSection =
-        rect.top <= navbarHeight + 80 && rect.bottom >= window.innerHeight * 0.35;
+      const isScrollingDown = e.deltaY > 0;
+      const isScrollingUp = e.deltaY < 0;
 
-      // If at section and not yet frozen, freeze immediately with navbar visible!
-      if (isOverSection && !isFrozenRef.current) {
-        if (!hasEverUnlockedDownRef.current || activeIndexRef.current < FEATURE_PHASES.length - 1) {
-          window.scrollTo({ top: targetScroll, behavior: 'instant' as ScrollBehavior });
-          freezeScreen();
-        }
-      }
+      if (currentState === 'aligned') {
+        if (!wasAligned) {
+          e.preventDefault();
+          
+          const absoluteTop = window.scrollY + rect.top;
+          window.scrollTo({ top: absoluteTop - targetTop, behavior: 'smooth' });
 
-      if (!isFrozenRef.current) return;
+          lastStepTimeRef.current = Date.now();
 
-      const now = Date.now();
-      const COOLDOWN = 900; // Snappy pacing
-
-      // User scrolls DOWN (wheel delta positive)
-      if (e.deltaY > 6) {
-        e.preventDefault();
-
-        // 1. Entrance pause buffer: Stay on Feature 01 for at least 800ms
-        if (now - entranceTimeRef.current < 500) {
+          if (previousState === 'below' || isScrollingDown) {
+            handleSelectPhase(0);
+          } else {
+            handleSelectPhase(FEATURE_PHASES.length - 1);
+          }
           return;
         }
 
-        if (activeIndexRef.current < FEATURE_PHASES.length - 1) {
-          if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
-            lastStepTimeRef.current = now;
-            isTransitioningRef.current = true;
-            setAnimating(true);
+        const now = Date.now();
+        const COOLDOWN = 900;
+        const EXIT_COOLDOWN = 1200;
 
-            const nextIndex = activeIndexRef.current + 1;
-            setActiveIndex(nextIndex);
-            activeIndexRef.current = nextIndex;
-
-            if (nextIndex === FEATURE_PHASES.length - 1) {
-              reachedLastFeatureTimeRef.current = Date.now();
+        if (isScrollingDown) {
+          if (activeIndexRef.current < FEATURE_PHASES.length - 1) {
+            e.preventDefault();
+            if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
+              lastStepTimeRef.current = now;
+              handleNext();
             }
-
-            setTimeout(() => {
-              isTransitioningRef.current = false;
-              setAnimating(false);
-            }, 500);
-          }
-        } else {
-          // 2. Exit pause buffer: Must view Feature 04 for at least 1100ms before unlocking!
-          if (now - reachedLastFeatureTimeRef.current > 1100 && !isTransitioningRef.current) {
-            hasEverUnlockedDownRef.current = true;
-            unfreezeScreen();
-            const nextTarget = targetScroll + sectionRef.current.offsetHeight + 20;
-            window.scrollTo({ top: nextTarget, behavior: 'smooth' });
-          }
-        }
-      }
-      // User scrolls UP (wheel delta negative)
-      else if (e.deltaY < -6) {
-        e.preventDefault();
-
-        if (now - entranceTimeRef.current < 500) {
-          return;
-        }
-
-        if (activeIndexRef.current > 0) {
-          if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
-            lastStepTimeRef.current = now;
-            isTransitioningRef.current = true;
-            setAnimating(true);
-
-            const prevIndex = activeIndexRef.current - 1;
-            setActiveIndex(prevIndex);
-            activeIndexRef.current = prevIndex;
-
-            if (prevIndex === 0) {
-              reachedFirstFeatureTimeRef.current = Date.now();
+          } else {
+            if (now - lastStepTimeRef.current < EXIT_COOLDOWN) {
+              e.preventDefault();
             }
-
-            setTimeout(() => {
-              isTransitioningRef.current = false;
-              setAnimating(false);
-            }, 500);
           }
-        } else {
-          // Feature 01 pause before unlocking to scroll up
-          if (now - reachedFirstFeatureTimeRef.current > 1100 && !isTransitioningRef.current) {
-            unfreezeScreen();
-            const prevTarget = Math.max(0, targetScroll - 400);
-            window.scrollTo({ top: prevTarget, behavior: 'smooth' });
+        } else if (isScrollingUp) {
+          if (activeIndexRef.current > 0) {
+            e.preventDefault();
+            if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
+              lastStepTimeRef.current = now;
+              handlePrev();
+            }
+          } else {
+            if (now - lastStepTimeRef.current < EXIT_COOLDOWN) {
+              e.preventDefault();
+            }
           }
         }
       }
     };
 
-    // Touch support for mobile devices
     let touchStartY = 0;
     const handleTouchStart = (e: TouchEvent) => {
       touchStartY = e.touches[0].clientY;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isFrozenRef.current) return;
+      const rect = container.getBoundingClientRect();
+      const targetTop = getTargetTop();
+      const tolerance = 80;
+      
+      let currentState: 'above' | 'below' | 'aligned';
+      if (rect.top > targetTop + tolerance) currentState = 'below';
+      else if (rect.top < targetTop - tolerance) currentState = 'above';
+      else currentState = 'aligned';
+
+      const wasAligned = positionStateRef.current === 'aligned';
+      const previousState = positionStateRef.current;
+      positionStateRef.current = currentState;
+
       const currentY = e.touches[0].clientY;
       const deltaY = touchStartY - currentY;
-      const now = Date.now();
-      const COOLDOWN = 900;
+      
+      const isScrollingDown = deltaY > 0;
+      const isScrollingUp = deltaY < 0;
 
-      if (deltaY > 20) {
-        if (now - entranceTimeRef.current < 500) return;
-
-        if (activeIndexRef.current < FEATURE_PHASES.length - 1) {
+      if (currentState === 'aligned') {
+        if (!wasAligned) {
           if (e.cancelable) e.preventDefault();
-          if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
-            lastStepTimeRef.current = now;
-            touchStartY = currentY;
-            isTransitioningRef.current = true;
-            setAnimating(true);
+          const absoluteTop = window.scrollY + rect.top;
+          window.scrollTo({ top: absoluteTop - targetTop, behavior: 'smooth' });
 
-            const nextIndex = activeIndexRef.current + 1;
-            setActiveIndex(nextIndex);
-            activeIndexRef.current = nextIndex;
+          lastStepTimeRef.current = Date.now();
 
-            if (nextIndex === FEATURE_PHASES.length - 1) {
-              reachedLastFeatureTimeRef.current = Date.now();
-            }
-
-            setTimeout(() => {
-              isTransitioningRef.current = false;
-              setAnimating(false);
-            }, 500);
+          if (previousState === 'below' || isScrollingDown) {
+            handleSelectPhase(0);
+          } else {
+            handleSelectPhase(FEATURE_PHASES.length - 1);
           }
-        } else {
-          if (now - reachedLastFeatureTimeRef.current > 1100 && !isTransitioningRef.current) {
-            hasEverUnlockedDownRef.current = true;
-            unfreezeScreen();
-          }
+          touchStartY = currentY;
+          return;
         }
-      } else if (deltaY < -20) {
-        if (now - entranceTimeRef.current < 500) return;
 
-        if (activeIndexRef.current > 0) {
-          if (e.cancelable) e.preventDefault();
-          if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
-            lastStepTimeRef.current = now;
-            touchStartY = currentY;
-            isTransitioningRef.current = true;
-            setAnimating(true);
+        const now = Date.now();
+        const COOLDOWN = 900;
+        const EXIT_COOLDOWN = 1200;
 
-            const prevIndex = activeIndexRef.current - 1;
-            setActiveIndex(prevIndex);
-            activeIndexRef.current = prevIndex;
-
-            if (prevIndex === 0) {
-              reachedFirstFeatureTimeRef.current = Date.now();
+        if (isScrollingDown && Math.abs(deltaY) > 10) {
+          if (activeIndexRef.current < FEATURE_PHASES.length - 1) {
+            if (e.cancelable) e.preventDefault();
+            if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
+              lastStepTimeRef.current = now;
+              touchStartY = currentY;
+              handleNext();
             }
-
-            setTimeout(() => {
-              isTransitioningRef.current = false;
-              setAnimating(false);
-            }, 500);
+          } else {
+            if (now - lastStepTimeRef.current < EXIT_COOLDOWN) {
+              if (e.cancelable) e.preventDefault();
+            }
           }
-        } else {
-          if (now - reachedFirstFeatureTimeRef.current > 1100 && !isTransitioningRef.current) {
-            unfreezeScreen();
+        } else if (isScrollingUp && Math.abs(deltaY) > 10) {
+          if (activeIndexRef.current > 0) {
+            if (e.cancelable) e.preventDefault();
+            if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
+              lastStepTimeRef.current = now;
+              touchStartY = currentY;
+              handlePrev();
+            }
+          } else {
+            if (now - lastStepTimeRef.current < EXIT_COOLDOWN) {
+              if (e.cancelable) e.preventDefault();
+            }
           }
         }
       }
     };
 
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
     };
   }, []);
-
-  const handleSelectPhase = (index: number) => {
-    setAnimating(true);
-    setActiveIndex(index);
-    if (index === FEATURE_PHASES.length - 1) {
-      reachedLastFeatureTimeRef.current = Date.now();
-    } else if (index === 0) {
-      reachedFirstFeatureTimeRef.current = Date.now();
-    }
-    setTimeout(() => setAnimating(false), 450);
-  };
-
-  const handleNext = () => {
-    handleSelectPhase((activeIndex + 1) % FEATURE_PHASES.length);
-  };
-
-  const handlePrev = () => {
-    handleSelectPhase((activeIndex - 1 + FEATURE_PHASES.length) % FEATURE_PHASES.length);
-  };
-
-  const handleManualUnlock = () => {
-    hasEverUnlockedDownRef.current = true;
-    unfreezeScreen();
-    if (sectionRef.current) {
-      const nextY = sectionRef.current.offsetTop + sectionRef.current.offsetHeight + 20;
-      window.scrollTo({ top: nextY, behavior: 'smooth' });
-    }
-  };
-
   const currentPhase = FEATURE_PHASES[activeIndex];
 
   return (
@@ -601,33 +505,10 @@ export const InteractiveScrollFeatures: React.FC<InteractiveScrollFeaturesProps>
                 </span>
 
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md transition-colors ${isFrozen
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300'
-                      : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400'
-                      }`}
-                  >
-                    {isFrozen ? (
-                      <>
-                        <Lock className="w-3 h-3 text-blue-600 animate-pulse" />
-                        <span>Screen Frozen</span>
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="w-3 h-3" />
-                        <span>Unlocked ↓</span>
-                      </>
-                    )}
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md transition-colors bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                    <Lock className="w-3 h-3 text-blue-600 animate-pulse" />
+                    <span>Hover to explore</span>
                   </span>
-
-                  {isFrozen && (
-                    <button
-                      onClick={handleManualUnlock}
-                      className="text-[10px] font-bold text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 underline cursor-pointer"
-                    >
-                      Skip ↓
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
