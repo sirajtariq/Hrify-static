@@ -3,6 +3,8 @@ import {
   Check,
   ArrowRight,
   Play,
+  LayoutGrid,
+  List,
   Sparkles,
 } from 'lucide-react';
 import { ProductShowcase } from '../components/ProductShowcase';
@@ -80,16 +82,45 @@ export const Product: React.FC<ProductProps> = ({ onOpenDemo, onOpenAI }) => {
         <ProductShowcase />
       </section>
 
-      {/* INTERACTIVE MODULE SHOWCASE SECTION */}
-      <section
-        className="pt-10 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-20"
-      >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/60 dark:to-indigo-950/60 border border-blue-100 dark:border-blue-900/50 mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-wide uppercase">
-              Interactive Module Explorer
-            </span>
+      {/* ========================================================= */}
+      {/* CORE MODULES SECTION                                      */}
+      {/* ========================================================= */}
+      <section className="pt-12 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 pb-4 border-b border-slate-100 dark:border-slate-800 gap-4">
+          <div>
+            <div className="inline-block px-3 py-1 rounded-full text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 mb-2">
+              CORE MODULES
+            </div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Powerful Modules for a <span className="text-gradient-brand">Smarter Workplace</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+              Everything you need to manage people, automate processes and build a more connected, productive organization.
+            </p>
+          </div>
+
+          {/* Grid / List View Toggle Control (Matches screenshot) */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 self-start md:self-auto">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Grid View</span>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'list'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>List View</span>
+            </button>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
             See Every Module in Action.{' '}
