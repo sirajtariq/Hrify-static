@@ -249,19 +249,20 @@ export const MODULES_12: ModuleData[] = [
 ];
 
 // SVG Curve 12-point layout points for single smooth C-arc (clear, prominent numbers and labels)
+// Using the calculated Bezier curve points to match the C-shape
 const CURVE_POINTS = [
-  { index: 0, step: '01', x: 18, y: 20 },
-  { index: 1, step: '02', x: 48, y: 70 },
-  { index: 2, step: '03', x: 78, y: 122 },
-  { index: 3, step: '04', x: 104, y: 174 },
-  { index: 4, step: '05', x: 122, y: 228 },
-  { index: 5, step: '06', x: 130, y: 282 },
-  { index: 6, step: '07', x: 126, y: 338 },
-  { index: 7, step: '08', x: 110, y: 392 },
-  { index: 8, step: '09', x: 86, y: 444 },
-  { index: 9, step: '10', x: 58, y: 494 },
-  { index: 10, step: '11', x: 32, y: 540 },
-  { index: 11, step: '12', x: 14, y: 580 },
+  { index: 0, step: '01', x: 90, y: 20 },
+  { index: 1, step: '02', x: 54, y: 70 },
+  { index: 2, step: '03', x: 30, y: 122 },
+  { index: 3, step: '04', x: 14, y: 174 },
+  { index: 4, step: '05', x: 4, y: 228 },
+  { index: 5, step: '06', x: 0, y: 282 },
+  { index: 6, step: '07', x: 2, y: 338 },
+  { index: 7, step: '08', x: 8, y: 392 },
+  { index: 8, step: '09', x: 20, y: 444 },
+  { index: 9, step: '10', x: 38, y: 494 },
+  { index: 10, step: '11', x: 61, y: 540 },
+  { index: 11, step: '12', x: 90, y: 580 },
 ];
 
 interface ModuleInteractiveShowcaseProps {
@@ -346,8 +347,8 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
     const handleWheel = (e: WheelEvent) => {
       const rect = container.getBoundingClientRect();
       const targetTop = getTargetTop();
-      const tolerance = 80; // Generous tolerance to catch the scroll
-      
+      const tolerance = 80;
+
       let currentState: 'above' | 'below' | 'aligned';
       if (rect.top > targetTop + tolerance) currentState = 'below';
       else if (rect.top < targetTop - tolerance) currentState = 'above';
@@ -357,22 +358,19 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
       const previousState = positionStateRef.current;
       positionStateRef.current = currentState;
 
-      const isScrollingDown = e.deltaY > 0;
-      const isScrollingUp = e.deltaY < 0;
+      // Lower threshold so it responds instantly to trackpad and mouse
+      const isScrollingDown = e.deltaY > 5;
+      const isScrollingUp = e.deltaY < -5;
 
       if (currentState === 'aligned') {
-        // Just entered the alignment zone
         if (!wasAligned) {
-          e.preventDefault(); // Stop normal scroll
-          
-          // Snap it perfectly into place
+          e.preventDefault(); 
           const absoluteTop = window.scrollY + rect.top;
           window.scrollTo({ top: absoluteTop - targetTop, behavior: 'smooth' });
 
-          lastStepTimeRef.current = Date.now(); // Initialize to absorb immediate exit momentum
+          lastStepTimeRef.current = Date.now();
 
-          // Start at module 1 if coming from top, or module 12 if coming from bottom
-          if (previousState === 'below' || isScrollingDown) {
+          if (previousState === 'below' || (e.deltaY > 0)) {
             handleSelectModule(0);
           } else {
             handleSelectModule(MODULES_12.length - 1);
@@ -380,9 +378,9 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
           return;
         }
 
-        // Already aligned, cycle through modules
         const now = Date.now();
-        const COOLDOWN = 600;
+        // 750ms is the sweet spot: blocks inertia double-skipping but stays fast and responsive
+        const COOLDOWN = 750;
         const EXIT_COOLDOWN = 1200; // Time in ms to trap scroll at boundaries to absorb momentum
 
         if (isScrollingDown) {
@@ -393,7 +391,7 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
               handleNext();
             }
           } else {
-            // At last module, absorb momentum before exiting
+            // At last module, absorb momentum before exiting, then allow normal scrolling
             if (now - lastStepTimeRef.current < EXIT_COOLDOWN) {
               e.preventDefault();
             }
@@ -406,11 +404,14 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
               handlePrev();
             }
           } else {
-            // At first module, absorb momentum before exiting
+            // At first module, absorb momentum before exiting, then allow normal scrolling
             if (now - lastStepTimeRef.current < EXIT_COOLDOWN) {
               e.preventDefault();
             }
           }
+        } else {
+          // Trap tiny movements to keep the screen locked while aligned
+          e.preventDefault();
         }
       }
     };
@@ -424,7 +425,7 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
       const rect = container.getBoundingClientRect();
       const targetTop = getTargetTop();
       const tolerance = 80;
-      
+
       let currentState: 'above' | 'below' | 'aligned';
       if (rect.top > targetTop + tolerance) currentState = 'below';
       else if (rect.top < targetTop - tolerance) currentState = 'above';
@@ -436,9 +437,9 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
 
       const currentY = e.touches[0].clientY;
       const deltaY = touchStartY - currentY; // positive = swipe up = scrolling down
-      
-      const isScrollingDown = deltaY > 0;
-      const isScrollingUp = deltaY < 0;
+
+      const isScrollingDown = deltaY > 30; // Increased swipe threshold
+      const isScrollingUp = deltaY < -30;
 
       if (currentState === 'aligned') {
         if (!wasAligned) {
@@ -448,7 +449,7 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
 
           lastStepTimeRef.current = Date.now();
 
-          if (previousState === 'below' || isScrollingDown) {
+          if (previousState === 'below' || (deltaY > 0)) {
             handleSelectModule(0);
           } else {
             handleSelectModule(MODULES_12.length - 1);
@@ -458,10 +459,10 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
         }
 
         const now = Date.now();
-        const COOLDOWN = 600;
+        const COOLDOWN = 1000;
         const EXIT_COOLDOWN = 1200;
 
-        if (isScrollingDown && Math.abs(deltaY) > 10) {
+        if (isScrollingDown) {
           if (activeIndexRef.current < MODULES_12.length - 1) {
             if (e.cancelable) e.preventDefault();
             if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
@@ -474,7 +475,7 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
               if (e.cancelable) e.preventDefault();
             }
           }
-        } else if (isScrollingUp && Math.abs(deltaY) > 10) {
+        } else if (isScrollingUp) {
           if (activeIndexRef.current > 0) {
             if (e.cancelable) e.preventDefault();
             if (now - lastStepTimeRef.current > COOLDOWN && !isTransitioningRef.current) {
@@ -487,6 +488,8 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
               if (e.cancelable) e.preventDefault();
             }
           }
+        } else {
+          if (e.cancelable) e.preventDefault(); // Always trap tiny touch scroll when aligned
         }
       }
     };
@@ -644,9 +647,10 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
           <div className="relative w-[220px] h-[590px]">
             {/* SVG Connecting Curved Path (C-Arc) */}
             <svg
-              viewBox="0 0 160 600"
+              viewBox="0 0 220 590"
               className="w-full h-full absolute inset-0 pointer-events-none"
               fill="none"
+              preserveAspectRatio="none"
             >
               <defs>
                 <linearGradient id="journeyGlowGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -658,7 +662,7 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
 
               {/* Background Guide Track */}
               <path
-                d="M 18,20 C 155,140 155,450 14,580"
+                d="M 90,20 C -30,150 -30,440 90,580"
                 stroke="currentColor"
                 strokeWidth="2.5"
                 className="text-slate-200 dark:text-slate-800"
@@ -667,7 +671,7 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
 
               {/* Dynamic Active Segment */}
               <path
-                d="M 18,20 C 155,140 155,450 14,580"
+                d="M 90,20 C -30,150 -30,440 90,580"
                 stroke="url(#journeyGlowGradient)"
                 strokeWidth="3"
                 strokeLinecap="round"
@@ -704,14 +708,13 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
                   style={{
                     left: `${pt.x}px`,
                     top: `${pt.y}px`,
-                    transform: 'translate(-50%, -50%)',
                   }}
-                  className="absolute flex items-center gap-2 cursor-pointer group z-20"
+                  className="absolute z-20 cursor-pointer group"
                   onClick={() => handleSelectModule(pt.index)}
                 >
-                  {/* Circle Node Button */}
+                  {/* Circle Node Button - Centered exactly on the curve point */}
                   <button
-                    className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full flex items-center justify-center font-bold text-[10.5px] sm:text-xs transition-all duration-300 shadow-md cursor-pointer shrink-0 ${isActive
+                    className={`absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2 w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full flex items-center justify-center font-bold text-[10.5px] sm:text-xs transition-all duration-300 shadow-md cursor-pointer shrink-0 ${isActive
                       ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/50 ring-4 ring-blue-100 dark:ring-blue-900/60 z-30 font-black'
                       : isPassed
                         ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-800 hover:scale-110 font-bold'
@@ -721,9 +724,9 @@ export const ModuleInteractiveShowcase: React.FC<ModuleInteractiveShowcaseProps>
                     {pt.step}
                   </button>
 
-                  {/* Label next to node */}
+                  {/* Label next to node - Offset to the right so it doesn't shift the circle */}
                   <span
-                    className={`text-[10.5px] sm:text-[11px] font-bold whitespace-nowrap pl-0.5 transition-all ${isActive
+                    className={`absolute left-[20px] top-0 -translate-y-1/2 text-[10.5px] sm:text-[11px] font-bold whitespace-nowrap transition-all ${isActive
                       ? 'text-blue-600 dark:text-blue-400 font-extrabold text-xs sm:text-[12.5px] scale-105'
                       : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
                       }`}
